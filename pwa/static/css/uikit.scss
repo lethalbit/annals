@@ -1,0 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Nunito+Sans:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&display=swap');
+
+@import '_colors.scss';
+
+$global-background: $background_primary;
+$global-color: $foreground_color;
+
+$global-font-family: 'Nunito Sans', sans-serif;
+$base-code-font-family: 'Fira Code', monospace;
+
+@import 'uikit/variables-theme.scss';
+@import 'uikit/mixins-theme.scss';
+@import 'uikit/uikit-theme.scss';

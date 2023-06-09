@@ -1,0 +1,44 @@
+//
+// Component: Thumbnav
+//
+// ========================================================================
+
+
+// Variables
+// ========================================================================
+
+//
+// New
+//
+
+$thumbnav-item-gradient:                         linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.4)) !default;
+$thumbnav-item-hover-opacity:                    0 !default;
+$thumbnav-item-active-opacity:                   0 !default;
+
+
+// Component
+// ========================================================================
+
+// @mixin hook-thumbnav(){}
+
+
+
+
+
+
+
+
+// Miscellaneous
+// ========================================================================
+
+// @mixin hook-thumbnav-misc(){}
+
+
+// Inverse
+// ========================================================================
+
+$inverse-thumbnav-item-gradient:                 linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.4)) !default;
+
+
+// @mixin hook-inverse-thumbnav-item-hover(){}
+// @mixin hook-inverse-thumbnav-item-active(){}

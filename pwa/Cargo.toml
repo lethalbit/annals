@@ -1,0 +1,13 @@
+[package]
+name = "annals-pwa"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-3-Clause"
+readme  = "../README.md"
+authors = [
+	"Aki Van Ness"
+]
+description = "IRC Logger and log web frontend"
+
+[dependencies]
+yew = { version = "0.20.0", features = ["csr"] }

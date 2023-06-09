@@ -1,0 +1,6 @@
+[build]
+target = "static/index.html"
+dist = "../target/dist"
+
+[tools]
+sass = "1.54.9"

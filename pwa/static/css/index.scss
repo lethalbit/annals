@@ -1,0 +1,54 @@
+@import '_colors.scss';
+
+*::-webkit-scrollbar-track {
+	background-color: $background_secondary;
+	border-radius: 5px;
+}
+
+*::-webkit-scrollbar {
+	width: 5px;
+	background-color: $background_secondary;
+	border-radius: 5px;
+}
+
+*::-webkit-scrollbar-thumb {
+	background-color: $accent_1;
+	border-radius: 5px;
+}
+
+header {
+	height: 50px;
+}
+
+main {
+	flex-grow: 5;
+	.about-btn {
+		color: $accent_1;
+		position: absolute;
+		right: 50px;
+		top: 50px;
+	}
+}
+
+footer {
+	padding: 5px;
+	background-color: $background_secondary;
+	border-top: 1px solid $black;
+	height: 35px;
+	display: flex;
+	flex-direction: row;
+	box-shadow: 0px -20px 12px -5px rgba(0,0,0,0.1);
+
+	span {
+		padding-left: 5px;
+		padding-right: 5px;
+	}
+
+	span.hoz-spacer {
+		flex-grow: 2;
+	}
+
+	span.api-status {
+		color: $green;
+	}
+}

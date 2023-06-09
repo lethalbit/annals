@@ -1,0 +1,59 @@
+//
+// Component: Dropdown
+//
+// ========================================================================
+
+
+// Variables
+// ========================================================================
+
+$dropdown-padding:                               25px !default;
+$dropdown-background:                            $global-background !default;
+
+$dropdown-dropbar-padding-top:                   5px !default;
+
+$dropdown-nav-subtitle-font-size:                12px !default;
+
+//
+// New
+//
+
+$dropdown-nav-font-size:                         $global-small-font-size !default;
+
+$dropdown-box-shadow:                            0 5px 12px rgba(0,0,0,0.15) !default;
+
+
+// Component
+// ========================================================================
+
+
+
+
+// Dropbar modifier
+// ========================================================================
+
+
+
+// @mixin hook-dropdown-dropbar-large(){}
+
+
+// Nav
+// ========================================================================
+
+
+
+// @mixin hook-dropdown-nav-item(){}
+
+// @mixin hook-dropdown-nav-item-hover(){}
+
+// @mixin hook-dropdown-nav-subtitle(){}
+
+// @mixin hook-dropdown-nav-header(){}
+
+// @mixin hook-dropdown-nav-divider(){}
+
+
+// Miscellaneous
+// ========================================================================
+
+// @mixin hook-dropdown-misc(){}
