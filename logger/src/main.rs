@@ -11,18 +11,25 @@ use clap::{
 };
 use axum::{
 	Router, Server,
-	routing::{
-		get
-	}
+	routing::get,
+	extract::{
+		ws::{Message, WebSocket},
+		Path, State, WebSocketUpgrade
+	},
+	response::IntoResponse
 };
 
 use diesel::{
 	PgConnection, Connection, ConnectionError
 };
 
+
+
 use tokio;
 use irc;
+use chrono;
 use tokio_stream::StreamExt;
+use serde_json::json;
 
 #[cfg(tokio_unstable)]
 use console_subscriber;
@@ -38,6 +45,18 @@ use std::{
 
 pub mod config;
 pub mod db;
+
+#[derive(Debug, Clone)]
+struct IRCLogMessage {
+	msg: irc::proto::Message,
+	server: String,
+	time: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Clone)]
+struct ServiceState {
+	msgs: tokio::sync::broadcast::Sender<IRCLogMessage>,
+}
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
@@ -96,7 +115,11 @@ async fn main() {
 		return
 	}
 
-	let (tx, mut rx) = tokio::sync::mpsc::channel::<irc::proto::Message>(1024);
+	let (tx, _) = tokio::sync::broadcast::channel::<IRCLogMessage>(1024);
+
+	let svc_state = ServiceState {
+		msgs: tx.clone(),
+	};
 
 	let mut irc_clients = Vec::with_capacity(cfg.irc.servers.capacity());
 
@@ -131,10 +154,10 @@ async fn main() {
 	let _res = tokio::join!(
 		futures::future::join_all(irc_clients),
 		tokio::task::spawn(async {
-			api_server(cfg.server, db_conn).await;
+			api_server(cfg.server, svc_state).await;
 		}),
 		tokio::task::spawn(async move {
-			if let Err(e) = redis_cache(cfg.storage.redis.clone(), rx).await {
+			if let Err(e) = redis_cache(cfg.storage.redis.clone(), tx.subscribe()).await {
 				error!("redis cache error: {e}");
 			}
 		}),
@@ -146,7 +169,7 @@ async fn main() {
 }
 
 #[tracing::instrument(skip_all, name = "irc client")]
-async fn irc_client(cfg: config::AnnulsConfigIRCServer, tx: tokio::sync::mpsc::Sender<irc::proto::Message>) -> Result<(), irc::error::Error>{
+async fn irc_client(cfg: config::AnnulsConfigIRCServer, tx: tokio::sync::broadcast::Sender<IRCLogMessage>) -> Result<(), irc::error::Error>{
 	info!("Starting IRC client for {} ({}:{})", cfg.name, cfg.host, cfg.port);
 	info!("[{}] * User: {}", cfg.name, cfg.username.as_ref().unwrap());
 	info!("[{}] * Nick: {}", cfg.name, cfg.nickname.as_ref().unwrap());
@@ -176,7 +199,9 @@ async fn irc_client(cfg: config::AnnulsConfigIRCServer, tx: tokio::sync::mpsc::S
 			_ => ()
 		};
 
-		if let Err(e) = tx.send(msg.clone()).await {
+		if let Err(e) = tx.send(IRCLogMessage {
+			msg: msg.clone(), server: cfg.name.clone(), time: chrono::offset::Utc::now()
+		}) {
 			error!("[{}] Unable to send message: {}", cfg.name, e);
 			return Err(irc::error::Error::AsyncChannelClosed);
 		}
@@ -188,9 +213,12 @@ async fn irc_client(cfg: config::AnnulsConfigIRCServer, tx: tokio::sync::mpsc::S
 }
 
 #[tracing::instrument(skip_all, name = "api server")]
-async fn api_server(cfg: config::AnnulsConfigServer, db: PgConnection) {
+async fn api_server(cfg: config::AnnulsConfigServer, svc_state: ServiceState) {
 	let api = Router::new()
-		.route("/", get(|| async { "Nya!" }));
+		.route("/", get(|| async { "Nya!" }))
+		.route("/api/live/:server/:channel", get(api_realtime_log))
+		.route("/api/log/:server/:channel/:year/:month/:day", get(api_historic_log))
+		.with_state(svc_state.clone());
 
 
 	let server = Server::bind(&cfg.host.parse().unwrap())
@@ -200,13 +228,54 @@ async fn api_server(cfg: config::AnnulsConfigServer, db: PgConnection) {
 	server.await.unwrap();
 }
 
+#[axum::debug_handler]
+async fn api_realtime_log(
+	ws: WebSocketUpgrade, Path((server, channel)): Path<(String, String)>,
+	State(svc_state): State<ServiceState>
+) -> impl IntoResponse {
+	debug!("New websocket client for {}/{}", server, channel);
+
+	ws.on_upgrade(|ws: WebSocket| async {
+		feed_realtime_api(svc_state, ws, server, channel).await
+	})
+}
+
+async fn feed_realtime_api(svc_state: ServiceState, mut ws: WebSocket, server: String, chan: String) {
+	let mut rx = svc_state.msgs.subscribe();
+
+	while let Ok(irc_msg) = rx.recv().await {
+		if irc_msg.server.eq(&server) {
+			if let irc::proto::Command::PRIVMSG(ref tgt, ref m) = irc_msg.msg.command {
+				if chan.eq(tgt) {
+					ws.send(Message::Text(json!({
+						"server": server.clone(),
+						"channel": tgt.clone(),
+						"message": m.clone(),
+						"timestamp": irc_msg.time.timestamp_millis(),
+						"raw": irc_msg.msg.to_string(),
+						"nick": irc_msg.msg.source_nickname(),
+					}).to_string())).await.unwrap();
+				}
+			}
+		}
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+	}
+}
+
+async fn api_historic_log(
+	Path((server, channel, year, month, day)): Path<(String, String, u16, u8, u8)>,
+	State(svc_state): State<ServiceState>
+) -> impl IntoResponse {
+
+}
+
 #[tracing::instrument(skip_all, name = "redis client")]
-async fn redis_cache(host: String, mut rx: tokio::sync::mpsc::Receiver<irc::proto::Message>) -> redis::RedisResult<()> {
+async fn redis_cache(host: String, mut rx: tokio::sync::broadcast::Receiver<IRCLogMessage>) -> redis::RedisResult<()> {
 	info!("Starting REDIS cache ventilator");
 	let client = redis::Client::open(format!("redis://{host}").as_str())?;
-	let mut con = client.get_async_connection().await?;
+	let mut con = client.get_tokio_connection_manager().await?;
 
-	while let Some(msg) = rx.recv().await {
+	while let Ok(msg) = rx.recv().await {
 
 	}
 
