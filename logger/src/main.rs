@@ -215,7 +215,6 @@ async fn irc_client(cfg: config::AnnulsConfigIRCServer, tx: tokio::sync::broadca
 #[tracing::instrument(skip_all, name = "api server")]
 async fn api_server(cfg: config::AnnulsConfigServer, svc_state: ServiceState) {
 	let api = Router::new()
-		.route("/", get(|| async { "Nya!" }))
 		.route("/api/live/:server/:channel", get(api_realtime_log))
 		.route("/api/log/:server/:channel/:year/:month/:day", get(api_historic_log))
 		.with_state(svc_state.clone());
