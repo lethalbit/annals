@@ -194,18 +194,12 @@ async fn irc_client(cfg: config::AnnulsConfigIRCServer, tx: tokio::sync::broadca
 	let mut stream = client.stream()?;
 
 	while let Some(msg) = stream.next().await.transpose()? {
-		trace!("[{}] {:#?} {:#?}",cfg.name, msg.source_nickname(), msg.command);
-		match msg.command {
-			_ => ()
-		};
-
 		if let Err(e) = tx.send(IRCLogMessage {
 			msg: msg.clone(), server: cfg.name.clone(), time: chrono::offset::Utc::now()
 		}) {
 			error!("[{}] Unable to send message: {}", cfg.name, e);
 			return Err(irc::error::Error::AsyncChannelClosed);
 		}
-
 	}
 
 	Ok(())
